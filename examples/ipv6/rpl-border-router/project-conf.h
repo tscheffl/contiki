@@ -35,6 +35,13 @@
 #define UIP_FALLBACK_INTERFACE rpl_interface
 #endif
 
+
+#if PROJECT_TARGET != avr-zigbit
+/* platform/avr-zigbit defines
+*   UIP_CONF_BUFFER_SIZE    240
+*   QUEUEBUF_CONF_NUM         1
+*/
+
 #ifndef QUEUEBUF_CONF_NUM
 #define QUEUEBUF_CONF_NUM          4
 #endif
@@ -43,6 +50,8 @@
 #define UIP_CONF_BUFFER_SIZE    140
 #endif
 
+#endif /*PROJECT_TARGET*/
+
 #ifndef UIP_CONF_RECEIVE_WINDOW
 #define UIP_CONF_RECEIVE_WINDOW  60
 #endif
@@ -50,5 +59,30 @@
 #ifndef WEBSERVER_CONF_CFS_CONNS
 #define WEBSERVER_CONF_CFS_CONNS 2
 #endif
+
+
+/*ANSolutions*/
+/* ************************************************************************** */
+//#pragma mark RPL Settings
+/* ************************************************************************** */
+#if UIP_CONF_IPV6_RPL
+ 
+#define UIP_CONF_ROUTER                 1
+#define UIP_CONF_ND6_SEND_RA		    0
+#define UIP_CONF_ND6_REACHABLE_TIME     600000
+#define UIP_CONF_ND6_RETRANS_TIMER      10000
+/* For slow slip connections, to prevent buffer overruns */
+//#define UIP_CONF_RECEIVE_WINDOW 300
+#undef UIP_CONF_FWCACHE_SIZE
+#define UIP_CONF_FWCACHE_SIZE    30
+#define UIP_CONF_BROADCAST       1
+#define UIP_ARCH_IPCHKSUM        1
+#define UIP_CONF_PINGADDRCONF    0
+#define UIP_CONF_LOGGING         0
+//#define UIP_CONF_DS6_ROUTE_INFORMATION 0
+ 
+#endif /* RPL */
+/*ANSolutions*/
+
 
 #endif /* PROJECT_ROUTER_CONF_H_ */

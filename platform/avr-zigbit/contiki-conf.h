@@ -79,7 +79,7 @@ void clock_delay_msec(uint16_t howlong);
 void clock_adjust_ticks(clock_time_t howmany);
 
 /* COM port to be used for SLIP connection */
-#define SLIP_PORT RS232_PORT_0
+#define SLIP_PORT RS232_PORT_1
 
 /* Pre-allocated memory for loadable modules heap space (in bytes)*/
 #define MMEM_CONF_SIZE 256
@@ -171,5 +171,12 @@ typedef int32_t s32_t;
 typedef unsigned short uip_stats_t;
 typedef unsigned long off_t;
 
+/*---------------------------------------------------------------------------*/
+/* Include project specific config */
+/* PROJECT_CONF_H might be defined in the project Makefile */
+#ifdef PROJECT_CONF_H
+#include PROJECT_CONF_H
+#endif /* PROJECT_CONF_H */
+/*---------------------------------------------------------------------------*/
 
 #endif /* CONTIKI_CONF_H_ */

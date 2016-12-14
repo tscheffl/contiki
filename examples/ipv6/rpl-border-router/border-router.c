@@ -43,8 +43,9 @@
 #include "net/rpl/rpl.h"
 
 #include "net/netstack.h"
-#include "dev/button-sensor.h"
+//#include "dev/button-sensor.h"
 #include "dev/slip.h"
+#include "dev/rs232.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -348,7 +349,7 @@ PROCESS_THREAD(border_router_process, ev, data)
 
   PROCESS_PAUSE();
 
-  SENSORS_ACTIVATE(button_sensor);
+//  SENSORS_ACTIVATE(button_sensor);
 
   PRINTF("RPL-Border router started\n");
 #if 0
@@ -377,10 +378,10 @@ PROCESS_THREAD(border_router_process, ev, data)
 
   while(1) {
     PROCESS_YIELD();
-    if (ev == sensors_event && data == &button_sensor) {
-      PRINTF("Initiating global repair\n");
-      rpl_repair_root(RPL_DEFAULT_INSTANCE);
-    }
+//    if (ev == sensors_event && data == &button_sensor) {
+//      PRINTF("Initiating global repair\n");
+//      rpl_repair_root(RPL_DEFAULT_INSTANCE);
+//    }
   }
 
   PROCESS_END();

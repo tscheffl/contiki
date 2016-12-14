@@ -2,6 +2,13 @@ CONTIKI_PROJECT=border-router
 all: $(CONTIKI_PROJECT) 
 
 CONTIKI=../../..
+# Project specific compile target - start
+ifndef TARGET
+TARGET = avr-zigbit
+CFLAGS += -DPROJECT_TARGET="avr-zigbit"
+CFLAGS += -DUIP_CONF_ROUTER=1 -DRPL_BORDER_ROUTER=1
+endif
+# Project specific compile target - end
 
 #linker optimizations
 SMALL=1
@@ -37,6 +44,7 @@ ifeq ($(PREFIX),)
 endif
 
 CONTIKI_WITH_IPV6 = 1
+CONTIKI_WITH_RPL = 1
 include $(CONTIKI)/Makefile.include
 
 $(CONTIKI)/tools/tunslip6:	$(CONTIKI)/tools/tunslip6.c
