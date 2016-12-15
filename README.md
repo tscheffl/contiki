@@ -1,19 +1,14 @@
-The Contiki Operating System
+Contiki OS - Examples
 ============================
 
-[![Build Status](https://travis-ci.org/contiki-os/contiki.svg?branch=master)](https://travis-ci.org/contiki-os/contiki/branches)
 
-Contiki is an open source operating system that runs on tiny low-power
-microcontrollers and makes it possible to develop applications that
-make efficient use of the hardware while providing standardized
-low-power wireless communication for a range of hardware platforms.
 
-Contiki is used in numerous commercial and non-commercial systems,
-such as city sound monitoring, street lights, networked electrical
-power meters, industrial monitoring, radiation monitoring,
-construction site monitoring, alarm systems, remote house monitoring,
-and so on.
+This is a fork of the Contiki open source operating system for microcontrollers.
 
-For more information, see the Contiki website:
+The fork is used to host and document several extensions and applications that are currently developed at the  [IPv6-Lab at the Beuth Hochschule für Technik Berlin, Germany](https://wiki.ipv6lab.beuth-hochschule.de).
 
-[http://contiki-os.org](http://contiki-os.org)
+####List of Code:
+* [Test-Tools for TCP-Connection Benchmarks](https://github.com/tscheffl/contiki/tree/tscheffl-3-0.0/examples/test-tcp)
+* ... (more to come)
+
+
