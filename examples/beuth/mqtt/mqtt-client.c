@@ -290,24 +290,25 @@ printf("Topic-LEN:%i\n",topic_len);
   }
 
   if(strncmp(&topic[10], "leds", 4) == 0) {
-    if(chunk[0] == '1') {
-    //  leds_on(LEDS_RED);
-    } else if(chunk[0] == '0') {
-    //  leds_off(LEDS_RED);
+    if(chunk[0] == '1') 
+    {
+      //leds_on(LEDS_RED);
+      printf("LED on\n");
+# if PROJECT_TARGET_AVR_ZIGBIT
+      //LED DS3 on
+      PORTB &= ~(1 << PIN5); 
+#endif //AN_SOLUTIONS
+    } 
+    else if(chunk[0] == '0') 
+    {
+      //leds_off(LEDS_RED);
+      printf("LED off\n");
+# if PROJECT_TARGET_AVR_ZIGBIT
+      PORTB |= (1 << PIN5);
+#endif //AN_SOLUTIONS
     }
     return;
   }
-
-#if BOARD_SENSORTAG
-  if(strncmp(&topic[10], "buzz", 4) == 0) {
-    if(chunk[0] == '1') {
-      buzzer_start(1000);
-    } else if(chunk[0] == '0') {
-      buzzer_stop();
-    }
-    return;
-  }
-#endif
 }
 /*---------------------------------------------------------------------------*/
 static void
