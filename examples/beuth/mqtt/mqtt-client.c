@@ -41,7 +41,7 @@
 //#include "net/ipv6/sicslowpan.h"
 
 #include "mqtt.h"
-#include "test-mqtt.h"
+#include "mqtt-client.h"
 #include "sys/etimer.h"
 #include <stdio.h>
 #include <string.h>
@@ -51,7 +51,7 @@
 #endif 
 
 #undef DBG
-//#define DEBUG_MQTT 1
+#define DEBUG_MQTT 1
 
 
 #if DEBUG_MQTT == 1
@@ -85,62 +85,6 @@ static const char *broker_ip = "2001:0638:0812:b88a:0000:0000:0000:0002";
 //#endif
 /*---------------------------------------------------------------------------*/
 /*
- * A timeout used when waiting for something to happen (e.g. to connect or to
- * disconnect)
- */
-#define STATE_MACHINE_PERIODIC     (CLOCK_SECOND >> 1)
-/*---------------------------------------------------------------------------*/
-/* Connections and reconnections */
-#define RETRY_FOREVER              0xFF
-#define RECONNECT_INTERVAL         (CLOCK_SECOND * 2)
-
-/*
- * Number of times to try reconnecting to the broker.
- * Can be a limited number (e.g. 3, 10 etc) or can be set to RETRY_FOREVER
- */
-#define RECONNECT_ATTEMPTS         5
-#define CONNECTION_STABLE_TIME     (CLOCK_SECOND * 5)
-#define NEW_CONFIG_WAIT_INTERVAL   (CLOCK_SECOND * 20)
-static struct timer connection_life;
-static uint8_t connect_attempt;
-/*---------------------------------------------------------------------------*/
-/* Various states */
-static uint8_t state;
-#define MQTT_CLIENT_STATE_INIT            0
-#define MQTT_CLIENT_STATE_REGISTERED      1
-#define MQTT_CLIENT_STATE_CONNECTING      2
-#define MQTT_CLIENT_STATE_CONNECTED       3
-#define MQTT_CLIENT_STATE_PUBLISHING      4
-#define MQTT_CLIENT_STATE_DISCONNECTED    5
-#define MQTT_CLIENT_STATE_NEWCONFIG       6
-#define MQTT_CLIENT_STATE_CONFIG_ERROR 0xFE
-#define MQTT_CLIENT_STATE_ERROR        0xFF
-/*---------------------------------------------------------------------------*/
-#define CONFIG_ORG_ID_LEN        32
-#define CONFIG_TYPE_ID_LEN       32
-#define CONFIG_AUTH_TOKEN_LEN    32
-#define CONFIG_EVENT_TYPE_ID_LEN 32
-#define CONFIG_CMD_TYPE_LEN       8
-#define CONFIG_IP_ADDR_STR_LEN   64
-/*---------------------------------------------------------------------------*/
-/* Default configuration values */
-#define DEFAULT_TYPE_ID             "ANSolutions"
-#define DEFAULT_AUTH_TOKEN          "AUTHZ"
-#define DEFAULT_EVENT_TYPE_ID       "status"
-#define DEFAULT_SUBSCRIBE_CMD_TYPE  "+"
-#define DEFAULT_BROKER_PORT         1883
-#define DEFAULT_PUBLISH_INTERVAL    (30 * CLOCK_SECOND)
-#define DEFAULT_KEEP_ALIVE_TIMER    60
-#define DEFAULT_RSSI_MEAS_INTERVAL  (CLOCK_SECOND * 30)
-/*---------------------------------------------------------------------------*/
-/* Payload length of ICMPv6 echo requests used to measure RSSI with def rt */
-#define ECHO_REQ_PAYLOAD_LEN   20
-
-/*---------------------------------------------------------------------------*/
-/* Maximum TCP segment size for outgoing segments of our socket */
-#define MQTT_CLIENT_MAX_SEGMENT_SIZE    32
-/*---------------------------------------------------------------------------*/
-/*
  * Buffers for Client ID and Topic.
  * Make sure they are large enough to hold the entire respective string
  *
@@ -169,8 +113,8 @@ static char *buf_ptr;
 static uint16_t seq_nr_value = 0;
 /*---------------------------------------------------------------------------*/
 /* Parent RSSI functionality */
-static struct uip_icmp6_echo_reply_notification echo_reply_notification;
-static struct etimer echo_request_timer;
+//static struct uip_icmp6_echo_reply_notification echo_reply_notification;
+//static struct etimer echo_request_timer;
 int def_rt_rssi = 0;
 /*---------------------------------------------------------------------------*/
 static uip_ip6addr_t def_route;
@@ -183,7 +127,7 @@ static mqtt_client_config_t conf;
 PROCESS(mqtt_client_process, "MQTT client");
 /*---------------------------------------------------------------------------*/
 int
-cc26xx_web_demo_ipaddr_sprintf(char *buf, uint8_t buf_len,
+ipaddr_sprintf(char *buf, uint8_t buf_len,
                                const uip_ipaddr_t *addr)
 {
   uint16_t a;
@@ -208,15 +152,15 @@ cc26xx_web_demo_ipaddr_sprintf(char *buf, uint8_t buf_len,
   return len;
 }
 /*---------------------------------------------------------------------------*/
-static void
-echo_reply_handler(uip_ipaddr_t *source, uint8_t ttl, uint8_t *data,
-                   uint16_t datalen)
-{
-  if(uip_ip6addr_cmp(source, uip_ds6_defrt_choose())) {
+//static void
+//echo_reply_handler(uip_ipaddr_t *source, uint8_t ttl, uint8_t *data,
+//                   uint16_t datalen)
+//{
+//  if(uip_ip6addr_cmp(source, uip_ds6_defrt_choose())) {
 // thomas:
 //    def_rt_rssi = sicslowpan_get_last_rssi();
-  }
-}
+//  }
+//}
 /*---------------------------------------------------------------------------*/
 static int
 construct_pub_topic(void)
@@ -332,6 +276,8 @@ pub_handler(const char *topic, uint16_t topic_len, const uint8_t *chunk,
   DBG("Pub Handler: topic='%s' (len=%u), chunk_len=%u\n", topic, topic_len,
       chunk_len);
 
+//Thomas
+printf("Topic-LEN:%i\n",topic_len);
   /* If we don't like the length, ignore */
   if(topic_len != 23 || chunk_len != 1) {
     printf("Incorrect topic or chunk len. Ignored\n");
@@ -462,7 +408,7 @@ publish(void)
   /* Put our Default route's string representation in a buffer */
   memset(def_rt_str, 0, sizeof(def_rt_str));
   DBG("Thomas: publish.\n");
- // cc26xx_web_demo_ipaddr_sprintf(def_rt_str, sizeof(def_rt_str),
+ // ipaddr_sprintf(def_rt_str, sizeof(def_rt_str),
  //                                uip_ds6_defrt_choose());
   strncpy(def_rt_str, "Testnachricht", sizeof("Testnachricht"));
   DBG("Thomas: publish..\n");
@@ -519,22 +465,22 @@ connect_to_broker(void)
   state = MQTT_CLIENT_STATE_CONNECTING;
 }
 /*---------------------------------------------------------------------------*/
-static void
-ping_parent(void)
-{
-  if(uip_ds6_get_global(ADDR_PREFERRED) == NULL) {
-    return;
-  }
+//static void
+//ping_parent(void)
+//{
+//  if(uip_ds6_get_global(ADDR_PREFERRED) == NULL) {
+//    return;
+//  }
 
 //thomas:
 //  uip_icmp6_send(uip_ds6_defrt_choose(), ICMP6_ECHO_REQUEST, 0,
-uip_ipaddr_t ipaddr;
+//uip_ipaddr_t ipaddr;
 
- uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0, 0, 1);
+// uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0, 0, 1);
 
-  uip_icmp6_send(&ipaddr, ICMP6_ECHO_REQUEST, 0,
-                 ECHO_REQ_PAYLOAD_LEN);
-}
+//  uip_icmp6_send(&ipaddr, ICMP6_ECHO_REQUEST, 0,
+//                 ECHO_REQ_PAYLOAD_LEN);
+//}
 /*---------------------------------------------------------------------------*/
 static void
 state_machine(void)
@@ -593,12 +539,14 @@ DBG("(MQTT state=%d, q=%u)\n", conn.state,
     /* Not connected yet. Wait */
     DBG("Connecting (%u)\n", connect_attempt);
     break;
+// *Thomas*
   case MQTT_CLIENT_STATE_CONNECTED:
-    /* Don't subscribe unless we are a registered device */
-    //if(strncasecmp(conf.org_id, QUICKSTART, strlen(conf.org_id)) == 0) {
-      DBG("Using 'quickstart': Skipping subscribe\n");
-      state = MQTT_CLIENT_STATE_PUBLISHING;
-    //}
+//    /* Don't subscribe unless we are a registered device */
+//    //if(strncasecmp(conf.org_id, QUICKSTART, strlen(conf.org_id)) == 0) {
+//      DBG("Using 'quickstart': Skipping subscribe\n");
+//      state = MQTT_CLIENT_STATE_PUBLISHING;
+//    //}
+//
     /* Continue */
   case MQTT_CLIENT_STATE_PUBLISHING:
     /* If the timer expired, the connection is stable. */
@@ -752,41 +700,46 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
     PROCESS_EXIT();
   }
 
-DBG("config done, now register\n"); 
+   DBG("config done, now register\n"); 
    mqtt_register(&conn, &mqtt_client_process, client_id, mqtt_event,
                   MQTT_CLIENT_MAX_SEGMENT_SIZE);
 
    update_config();
 
-  uip_icmp6_echo_reply_callback_add(&echo_reply_notification,
-                                    echo_reply_handler);
-  etimer_set(&echo_request_timer, conf.def_rt_ping_interval);
+  //uip_icmp6_echo_reply_callback_add(&echo_reply_notification,
+  //                                  echo_reply_handler);
+  //etimer_set(&echo_request_timer, conf.def_rt_ping_interval);
 
 
   /*
    * Loop for ever, accepting new connections.
    */
-DBG("entering main-loop\n");
-  while(1) {
+  DBG("entering main-loop\n");
+  while(1) 
+  {
     /*
      * Blocks until we get the first TCP/IP event.
      */
-DBG("Sleeping...\n");
+    DBG("Sleeping...\n");
     PROCESS_YIELD();
 
-DBG("Waking...\n");
+    DBG("Waking...\n");
     if((ev == PROCESS_EVENT_TIMER && data == &publish_periodic_timer) ||
        ev == PROCESS_EVENT_POLL //||
        //ev == cc26xx_web_demo_publish_event
-	) {
+	  ) 
+	  {
 //      printf("timer-event\n");
        state_machine();
-    }
-    if(ev == PROCESS_EVENT_TIMER && data == &echo_request_timer) {
+     }
+    
+/* eliminated the regular PING    
+    if(ev == PROCESS_EVENT_TIMER && data == &echo_request_timer) 
+    {
 DBG("ping\n");
 //#if AN_SOLUTIONS == 1
 # if PROJECT_TARGET_AVR_ZIGBIT
-      /*Blink LED DS2 on PING*/
+      //Blink LED DS2 on PING
       PORTB &= ~(1 << PIN6); 
 #endif //AN_SOLUTIONS
       ping_parent();
@@ -796,6 +749,7 @@ DBG("ping\n");
 #endif //AN_SOLUTIONS
       etimer_set(&echo_request_timer, conf.def_rt_ping_interval);
     }
+*/
   }
   PROCESS_END();
 }
