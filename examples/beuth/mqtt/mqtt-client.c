@@ -51,7 +51,7 @@
 #endif 
 
 #undef DBG
-#define DEBUG_MQTT 1
+#define DEBUG_MQTT 0
 
 
 #if DEBUG_MQTT == 1
@@ -387,8 +387,10 @@ publish(void)
   int remaining = APP_BUFFER_SIZE;
   char def_rt_str[64];
 
-  seq_nr_value++;
+  //Toggle LED DS2 on MQTT PUBLISH
+  PORTB ^= (1 << PIN6); 
 
+  seq_nr_value++;
   buf_ptr = app_buffer;
 
   len = snprintf(buf_ptr, remaining,
@@ -454,6 +456,7 @@ publish(void)
                strlen(app_buffer), MQTT_QOS_LEVEL_0, MQTT_RETAIN_OFF);
 
   DBG("APP - Publish!\n");
+
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -679,9 +682,9 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
 	DDRB |= (1 << PIN5);
 	DDRB |= (1 << PIN6);
 	DDRB |= (1 << PIN7);
-	PORTB &= ~(1 << PIN7); /*LOW -> on*/
-	PORTB |= (1 << PIN6);
-	PORTB |= (1 << PIN5);
+	PORTB &= ~(1 << PIN7); /*DS3: LOW  -> on  */
+	PORTB |= (1 << PIN6);  /*DS2: HIGH -> off */
+	PORTB |= (1 << PIN5);  /*DS1: HIGH -> off */
 	/*END LEDs @ANY Brick*/
 
 #endif //AN_SOLUTIONS
