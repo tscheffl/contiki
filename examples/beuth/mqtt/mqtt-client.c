@@ -119,8 +119,10 @@ int def_rt_rssi = 0;
 /*---------------------------------------------------------------------------*/
 static uip_ip6addr_t def_route;
 /*---------------------------------------------------------------------------*/
-/*---------------------------------------------------------------------------*/
 static mqtt_client_config_t conf;
+/*---------------------------------------------------------------------------*/
+/*Status of button (ANSolutions Board)*/
+static volatile short button_flag = 0; //initial state for debounce-code
 
 
 /*---------------------------------------------------------------------------*/
@@ -151,6 +153,37 @@ ipaddr_sprintf(char *buf, uint8_t buf_len,
 
   return len;
 }
+
+/* battery power level*/
+/************************/
+ 
+/** \brief function for initialization of the adc*/
+void adc_init()
+{
+    // AREF = AVcc
+    ADMUX = (1<<REFS0)|(1<<REFS1); //intern 2.54V voltage reference
+ 
+    // ADC Enable and prescaler of 128
+    // 16000000/128 = 125000
+    ADCSRA = (1<<ADEN)|(1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0);
+}
+ 
+/** \brief adc read function */
+uint16_t adc_read()
+{
+    ADMUX = (ADMUX & 0xF8)|0;     // clears the bottom 3 bits before ORing
+    // start single convertion
+    // write '1' to ADSC
+    ADCSRA |= (1<<ADSC);
+    // wait for conversion to complete
+    // ADSC becomes '0' again
+    // till then, run loop continuously
+    while(ADCSRA & (1<<ADSC));
+ 
+    return (ADC);
+}
+/*Battery Level end*/
+
 /*---------------------------------------------------------------------------*/
 //static void
 //echo_reply_handler(uip_ipaddr_t *source, uint8_t ttl, uint8_t *data,
@@ -415,8 +448,19 @@ publish(void)
  //                                uip_ds6_defrt_choose());
   strncpy(def_rt_str, "Testnachricht", sizeof("Testnachricht"));
   DBG("Thomas: publish..\n");
-  len = snprintf(buf_ptr, remaining, ",\"Def Route\":\"%s\",\"RSSI (dBm)\":%d",
-                 def_rt_str, def_rt_rssi);
+
+  
+  uint16_t adc_value;
+  int batt_level;
+  adc_value=adc_read();
+  batt_level=(((25400)/1024)*adc_value*2); //Reference Voltage 2.54Volts, 10Bit ADC, 
+  //multiplied with ADC Read, multiplied with two because of the 1:1 voltage divider
+
+  len = snprintf(buf_ptr, remaining, ",\"Def Route\":\"%s\",\"Battery (Volt)\":%d",
+                 def_rt_str, batt_level);
+
+  //len = snprintf(buf_ptr, remaining, ",\"Def Route\":\"%s\",\"RSSI (dBm)\":%d",
+  //               def_rt_str, def_rt_rssi);
 
   if(len < 0 || len >= remaining) {
     printf("Buffer too short. Have %d, need %d + \\0\n", remaining, len);
@@ -645,6 +689,20 @@ DBG("(MQTT state=%d, q=%u)\n", conn.state,
   /* If we didn't return so far, reschedule ourselves */
   etimer_set(&publish_periodic_timer, STATE_MACHINE_PERIODIC);
 }
+
+ISR(INT6_vect)
+{            
+  if (button_flag == 0)
+  {
+      button_flag = 1; //button pressed
+      //PORTB ^= (1 << PIN5);
+
+      process_poll(&mqtt_client_process);
+  }
+  //printf("interrupt was triggered on INT0... \n");  
+}
+
+
 /*---------------------------------------------------------------------------*/
 AUTOSTART_PROCESSES(&mqtt_client_process);
 /*---------------------------------------------------------------------------*/
@@ -682,11 +740,22 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
 	DDRB |= (1 << PIN5);
 	DDRB |= (1 << PIN6);
 	DDRB |= (1 << PIN7);
-	PORTB &= ~(1 << PIN7); /*DS3: LOW  -> on  */
-	PORTB |= (1 << PIN6);  /*DS2: HIGH -> off */
-	PORTB |= (1 << PIN5);  /*DS1: HIGH -> off */
+	PORTB &= ~(1 << PIN7); /*DS3: LOW  -> on: Indicate Operation*/
+	PORTB |= (1 << PIN6);  /*DS2: HIGH -> off: MQTT Ops*/
+	PORTB |= (1 << PIN5);  /*DS1: HIGH -> off: MQTT Configurable */
 	/*END LEDs @ANY Brick*/
+        
+        /*Enable IRQ6 (Pushbutton)*/
+	DDRE &= ~(1 << DDB6);   /* PE6 as input */
+        PORTE |= (1 << PB6);   /* enable internal pull-up on PE6 */
+        EIMSK &= ~(1 << INT6); //disable interrupts before changing EICRA
+        EICRB &= ~(1 << ISC60); //EICRB 00xx|0000 low-level triggers interrupt on int6 (p. 111)
+        EICRB &= ~(1 << ISC61); //EICRB 00xx|0000 low-level triggers interrupt on int6 (p. 111)
+        EIMSK |= (1 << INT6); // enable INT6 (datasheet p. 219 ff)
+	/*End enable IRQ6 (Pushbutton)*/
 
+	/*Enable ADC measurements (voltage level)*/
+	adc_init();
 #endif //AN_SOLUTIONS
 
 
@@ -714,6 +783,9 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
   //                                  echo_reply_handler);
   //etimer_set(&echo_request_timer, conf.def_rt_ping_interval);
 
+  static struct etimer debounce_timer;
+  static uint8_t debounce_state = 1;
+  
 
   /*
    * Loop for ever, accepting new connections.
@@ -728,13 +800,29 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
     PROCESS_YIELD();
 
     DBG("Waking...\n");
-    if((ev == PROCESS_EVENT_TIMER && data == &publish_periodic_timer) ||
-       ev == PROCESS_EVENT_POLL //||
-       //ev == cc26xx_web_demo_publish_event
-	  ) 
-	  {
+ 	if((ev == PROCESS_EVENT_TIMER && data == &publish_periodic_timer) ||
+ 	    ev == PROCESS_EVENT_POLL || (ev == PROCESS_EVENT_TIMER && data == &debounce_timer)) 
+	{
 //      printf("timer-event\n");
-       state_machine();
+
+	if (data == &debounce_timer)
+	{
+		button_flag = 0;
+		debounce_state = 1;
+	}
+  	else if (button_flag == 1 && debounce_state == 1)
+  	{
+//		if (debounce_state == 1)
+//		{
+			debounce_state = 0;			
+			PORTB ^= (1 << PIN5); 
+			etimer_set(&debounce_timer, CLOCK_SECOND/5);
+//		}
+        }
+        else
+	{
+       		state_machine();
+	}
      }
     
 /* eliminated the regular PING    
